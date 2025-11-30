@@ -57,6 +57,7 @@ export const api = {
                 data: {
                     company_name: companyName
                 },
+                // Set this to your Vercel URL in Supabase Dashboard
                 emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined
             }
         });

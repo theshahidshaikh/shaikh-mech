@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ViewState, PulleyItem, AppSettings, Client } from './types';
 import { Navbar } from './components/Navbar';
 import { LoginSignupPage } from './pages/LoginSignupPage';
+import { EmailConfirmationPage } from './pages/EmailConfirmationPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AddItemsPage } from './pages/AddItemsPage';
 import { TallyPage } from './pages/TallyPage';
@@ -15,6 +16,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [view, setView] = useState<ViewState>('dashboard');
   const [isLoading, setIsLoading] = useState(false);
+  const [showEmailConfirm, setShowEmailConfirm] = useState(false);
   
   // App State
   const [settings, setSettings] = useState<AppSettings>({
@@ -28,6 +30,15 @@ function App() {
 
   const [clients, setClients] = useState<Client[]>([]);
   const [items, setItems] = useState<PulleyItem[]>([]);
+
+  // Check for Email Confirmation Link on Startup
+  useEffect(() => {
+    const hash = window.location.hash;
+    // Supabase sends #access_token=...&type=signup or recovery
+    if (hash && hash.includes('access_token') && (hash.includes('type=signup') || hash.includes('type=recovery') || hash.includes('type=magiclink'))) {
+        setShowEmailConfirm(true);
+    }
+  }, []);
 
   // Auth Listener
   useEffect(() => {
@@ -183,6 +194,15 @@ function App() {
     // Navigate logic or filter
     setView('dashboard');
   };
+
+  // --- SPECIAL FLOW: EMAIL CONFIRMATION ---
+  if (showEmailConfirm) {
+      return <EmailConfirmationPage onContinue={() => {
+          setShowEmailConfirm(false);
+          // Force reload of data now that we are confirmed
+          loadData();
+      }} />;
+  }
 
   if (!isAuthenticated) {
     return <LoginSignupPage onLoginSuccess={handleLogin} />;
