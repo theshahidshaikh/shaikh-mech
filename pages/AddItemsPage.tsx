@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { PulleyItem, AppSettings, Client } from '../types';
 import { Button } from '../components/ui/Button';
-import { Trash2, Users, History, Edit, Edit2, X, AlertCircle, Plus } from 'lucide-react';
+import { Trash2, Users, History, Edit, Edit2, X, AlertCircle, Plus, Box } from 'lucide-react';
 
 interface AddItemsPageProps {
   items: PulleyItem[];
@@ -94,6 +94,29 @@ export const AddItemsPage: React.FC<AddItemsPageProps> = ({
   };
 
   const derived = calculateValues();
+
+  // --- LIVE STOCK CALCULATION ---
+  const currentStock = useMemo(() => {
+    const d = parseFloat(formData.diameter);
+    const g = parseFloat(formData.grooves);
+    
+    // Only calculate if we have valid specs
+    if (!d || !g) return null;
+
+    return items.reduce((acc, item) => {
+        // Match exact specs
+        if (
+            item.diameter === d &&
+            item.grooves === g &&
+            item.section === formData.section &&
+            item.type === formData.type
+        ) {
+            // Add if IN, Subtract if OUT
+            return acc + (item.transactionType === 'IN' ? item.quantity : -item.quantity);
+        }
+        return acc;
+    }, 0);
+  }, [formData.diameter, formData.grooves, formData.section, formData.type, items]);
 
   // Extract all unique specs for Autocomplete
   const allUniqueSpecs = useMemo(() => {
@@ -576,7 +599,16 @@ export const AddItemsPage: React.FC<AddItemsPageProps> = ({
             {/* Quantity & Rate */}
             <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-1">
-                    <label className="text-xs font-bold text-gray-500 uppercase mb-1.5 block">Quantity</label>
+                    <div className="flex justify-between items-center mb-1.5">
+                        <label className="text-xs font-bold text-gray-500 uppercase block">Quantity</label>
+                        {/* CURRENT STOCK DISPLAY */}
+                        {currentStock !== null && (
+                            <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center ${currentStock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                <Box size={10} className="mr-1"/> 
+                                {currentStock > 0 ? `${currentStock} Rem.` : `Deficit: ${currentStock}`}
+                            </div>
+                        )}
+                    </div>
                     <input
                         ref={quantityRef}
                         type="text"

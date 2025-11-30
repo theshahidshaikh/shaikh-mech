@@ -235,26 +235,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({ items, clients, settin
                     </table>
                 </div>
 
-                {/* 4. Totals & Info */}
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-12">
-                    <div className="w-full sm:w-1/2 space-y-6">
-                        {/* Bank Details Placeholder */}
-                        <div className="bg-gray-50 p-4 rounded border border-gray-100 print:border-gray-200">
-                            <p className="text-xs font-bold text-gray-500 uppercase mb-2">Bank Details</p>
-                            <p className="text-sm text-gray-700"><span className="font-semibold">Bank:</span> HDFC Bank</p>
-                            <p className="text-sm text-gray-700"><span className="font-semibold">Account:</span> XXXXXXXXXX</p>
-                            <p className="text-sm text-gray-700"><span className="font-semibold">IFSC:</span> HDFC000XXXX</p>
-                        </div>
-                        
-                        <div>
-                             <p className="text-xs font-bold text-gray-500 uppercase mb-1">Total in words</p>
-                             <p className="text-sm text-gray-900 italic capitalize">
-                                 {/* Simple placeholder for words conversion - usually handled by library */}
-                                 Only {settings.currency || '₹'} {totalAmount.toLocaleString('en-IN')}
-                             </p>
-                        </div>
-                    </div>
-
+                {/* 4. Totals & Info (Simplified) */}
+                <div className="flex justify-end">
                     <div className="w-full sm:w-1/3">
                          <div className="space-y-3">
                              <div className="flex justify-between text-sm">
@@ -275,14 +257,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({ items, clients, settin
                     </div>
                 </div>
 
-                {/* 5. Footer */}
-                <div className="mt-16 pt-8 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-end gap-8 print:mt-auto">
-                    <div className="text-xs text-gray-400 max-w-sm">
-                        <p className="font-bold mb-1">Terms & Conditions:</p>
-                        <p>1. Goods once sold will not be taken back.</p>
-                        <p>2. Interest @ 18% p.a. will be charged if payment is not made within due date.</p>
-                        <p>3. Subject to jurisdiction.</p>
-                    </div>
+                {/* 5. Footer (Simplified) */}
+                <div className="mt-16 pt-8 border-t border-gray-200 flex justify-end print:mt-auto">
                     <div className="text-center">
                         <div className="h-16 w-40 border-b border-gray-400 mb-2"></div>
                         <p className="text-xs font-bold text-gray-900 uppercase">Authorized Signatory</p>
