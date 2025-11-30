@@ -95,15 +95,20 @@ export const AddItemsPage: React.FC<AddItemsPageProps> = ({
 
   const derived = calculateValues();
 
-  // --- LIVE STOCK CALCULATION ---
+  // --- LIVE STOCK CALCULATION (PROJECTED) ---
   const currentStock = useMemo(() => {
     const d = parseFloat(formData.diameter);
     const g = parseFloat(formData.grooves);
+    const q = parseFloat(formData.quantity) || 0;
     
     // Only calculate if we have valid specs
     if (!d || !g) return null;
 
-    return items.reduce((acc, item) => {
+    // 1. Calculate Base Stock from Database History
+    const baseStock = items.reduce((acc, item) => {
+        // If editing, ignore the old version of this item in the calc so we don't double count
+        if (editingId && item.id === editingId) return acc;
+
         // Match exact specs
         if (
             item.diameter === d &&
@@ -116,7 +121,16 @@ export const AddItemsPage: React.FC<AddItemsPageProps> = ({
         }
         return acc;
     }, 0);
-  }, [formData.diameter, formData.grooves, formData.section, formData.type, items]);
+
+    // 2. Apply Current Form Input to get "Closing Stock"
+    // If IN: Base + Input
+    // If OUT: Base - Input
+    if (formData.transactionType === 'IN') {
+        return baseStock + q;
+    } else {
+        return baseStock - q;
+    }
+  }, [formData.diameter, formData.grooves, formData.section, formData.type, formData.quantity, formData.transactionType, items, editingId]);
 
   // Extract all unique specs for Autocomplete
   const allUniqueSpecs = useMemo(() => {
@@ -601,11 +615,11 @@ export const AddItemsPage: React.FC<AddItemsPageProps> = ({
                 <div className="col-span-1">
                     <div className="flex justify-between items-center mb-1.5">
                         <label className="text-xs font-bold text-gray-500 uppercase block">Quantity</label>
-                        {/* CURRENT STOCK DISPLAY */}
+                        {/* CURRENT STOCK DISPLAY (PROJECTED) */}
                         {currentStock !== null && (
-                            <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center ${currentStock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center ${currentStock >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                 <Box size={10} className="mr-1"/> 
-                                {currentStock > 0 ? `${currentStock} Rem.` : `Deficit: ${currentStock}`}
+                                {currentStock >= 0 ? `${currentStock} Rem.` : `Deficit: ${currentStock}`}
                             </div>
                         )}
                     </div>
