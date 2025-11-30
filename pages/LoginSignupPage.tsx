@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { api } from '../services/api';
@@ -19,6 +19,11 @@ export const LoginSignupPage: React.FC<LoginSignupPageProps> = ({ onLoginSuccess
   const [companyAddress, setCompanyAddress] = useState('');
   const [gstNo, setGstNo] = useState('');
   const [error, setError] = useState('');
+
+  // Clear timeout on unmount
+  useEffect(() => {
+    return () => setIsLoading(false);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,13 +52,10 @@ export const LoginSignupPage: React.FC<LoginSignupPageProps> = ({ onLoginSuccess
         onLoginSuccess(user, settings);
     } catch (err: any) {
         console.error(err);
-        let msg = 'Authentication failed.';
-        if (err.message.includes('auth/invalid-credential') || err.message.includes('auth/wrong-password')) {
+        
+        let msg = err.message || 'An error occurred';
+        if (msg.includes('Invalid login credentials')) {
             msg = 'Invalid email or password.';
-        } else if (err.message.includes('auth/email-already-in-use')) {
-            msg = 'Email is already registered.';
-        } else if (err.message.includes('auth/weak-password')) {
-            msg = 'Password should be at least 6 characters.';
         }
         setError(msg);
     } finally {
@@ -119,7 +121,7 @@ export const LoginSignupPage: React.FC<LoginSignupPageProps> = ({ onLoginSuccess
             />
           </div>
 
-          {error && <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">{error}</div>}
+          {error && <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded border border-red-100 font-medium">{error}</div>}
 
           <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
             {isLoading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}

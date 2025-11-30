@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ViewState, PulleyItem, AppSettings, Client } from './types';
 import { Navbar } from './components/Navbar';
@@ -10,6 +9,7 @@ import { BillingPage } from './pages/BillingPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ClientsPage } from './pages/ClientsPage';
 import { api } from './services/api';
+import { supabase } from './services/supabase';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -23,13 +23,39 @@ function App() {
     gstNo: '',
     defaultRate: 6,
     boreRate: 50,
-    currency: '' // Removed currency symbol
+    currency: ''
   });
 
   const [clients, setClients] = useState<Client[]>([]);
   const [items, setItems] = useState<PulleyItem[]>([]);
 
-  // Initial Data Load on Auth
+  // Auth Listener
+  useEffect(() => {
+    // Check active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+             setIsAuthenticated(true);
+        } else {
+             setIsAuthenticated(false);
+        }
+    });
+
+    // Listen for changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+      if (!session) {
+          setItems([]);
+          setClients([]);
+          setView('dashboard');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Initial Data Load
   useEffect(() => {
     if (isAuthenticated) {
       loadData();
@@ -39,10 +65,34 @@ function App() {
   const loadData = async () => {
     setIsLoading(true);
     try {
+        // We need to re-fetch settings on load to ensure we have the company name
+        // (Login returns it, but page refresh needs fetch)
         const [fetchedItems, fetchedClients] = await Promise.all([
             api.getItems(),
             api.getClients()
         ]);
+        
+        // Fetch settings manually since auth state change doesn't return them
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data: settingsData } = await supabase
+                .from('settings')
+                .select('*')
+                .eq('user_id', user.id)
+                .single();
+            
+            if (settingsData) {
+                setSettings({
+                    companyName: settingsData.company_name,
+                    companyAddress: settingsData.company_address || '',
+                    gstNo: settingsData.gst_no || '',
+                    defaultRate: settingsData.default_rate || 6,
+                    boreRate: settingsData.bore_rate || 50,
+                    currency: settingsData.currency || ''
+                });
+            }
+        }
+
         setItems(fetchedItems);
         setClients(fetchedClients);
     } catch (e) {
@@ -54,36 +104,29 @@ function App() {
 
   const handleLogin = async (user: any, userSettings: AppSettings) => {
     setSettings(userSettings);
-    setIsAuthenticated(true);
+    // Authenticated state handled by subscription
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setView('dashboard');
-    setItems([]);
-    setClients([]);
+  const handleLogout = async () => {
+    await api.logout();
+    // State reset handled by subscription
   };
 
   const handleAddItem = async (newItem: PulleyItem) => {
-    // Optimistic Update (update UI immediately) or Wait for Server
-    // Here we wait for server to ensure ID sync
     try {
-       await api.saveItem(newItem);
-       // Reload items to get fresh state (or just append locally if you prefer speed)
-       const freshItems = await api.getItems();
-       setItems(freshItems);
+       const savedItem = await api.saveItem(newItem);
+       setItems(prev => [savedItem, ...prev]);
     } catch(e) {
-        alert("Failed to save item");
+        alert("Failed to save item: " + e);
     }
   };
 
   const handleUpdateItem = async (updatedItem: PulleyItem) => {
     try {
-        await api.saveItem(updatedItem); // Upsert logic in mock/api
-        const freshItems = await api.getItems();
-        setItems(freshItems);
+        const savedItem = await api.saveItem(updatedItem);
+        setItems(prev => prev.map(i => i.id === updatedItem.id ? savedItem : i));
     } catch (e) {
-        alert("Failed to update item");
+        alert("Failed to update item: " + e);
     }
   };
 
@@ -98,17 +141,17 @@ function App() {
 
   const handleAddClient = async (client: Client) => {
     try {
-        await api.saveClient(client);
-        setClients(prev => [...prev, client]);
+        const savedClient = await api.saveClient(client);
+        setClients(prev => [...prev, savedClient]);
     } catch (e) {
-        alert("Failed to save client");
+        alert("Failed to save client: " + e);
     }
   };
 
   const handleUpdateClient = async (updatedClient: Client) => {
       try {
-          await api.updateClient(updatedClient);
-          setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+          const savedClient = await api.updateClient(updatedClient);
+          setClients(prev => prev.map(c => c.id === updatedClient.id ? savedClient : c));
       } catch (e) {
           alert("Failed to update client");
       }
@@ -133,8 +176,8 @@ function App() {
   };
 
   const handleSelectClientForView = (clientId: string) => {
+    // Navigate logic or filter
     setView('dashboard');
-    // Ideally pass a filter param to dashboard, but for now simple nav
   };
 
   if (!isAuthenticated) {

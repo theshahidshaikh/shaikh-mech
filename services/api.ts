@@ -1,187 +1,282 @@
 import { PulleyItem, Client, AppSettings, User } from '../types';
-import { auth, db } from './firebase';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  updateProfile 
-} from "firebase/auth";
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  addDoc, 
-  setDoc, 
-  doc, 
-  deleteDoc, 
-  updateDoc 
-} from "firebase/firestore";
-
-// Helper to get current user ID safely
-const getUserId = () => {
-  const user = auth.currentUser;
-  if (!user) throw new Error("User not authenticated");
-  return user.uid;
-};
+import { supabase } from './supabase';
 
 // ==========================================
-// FIREBASE API SERVICE
+// SUPABASE API SERVICE
 // ==========================================
+
+// Helper to map DB snake_case to Frontend camelCase
+const mapSettingsFromDB = (data: any): AppSettings => ({
+    companyName: data.company_name || '',
+    companyAddress: data.company_address || '',
+    gstNo: data.gst_no || '',
+    defaultRate: Number(data.default_rate) || 6,
+    boreRate: Number(data.bore_rate) || 50,
+    currency: data.currency || ''
+});
+
+const mapClientFromDB = (data: any): Client => ({
+    id: data.id,
+    name: data.name,
+    contact: data.contact,
+    defaultRate: data.default_rate ? Number(data.default_rate) : undefined
+});
+
+const mapItemFromDB = (data: any): PulleyItem => ({
+    id: data.id,
+    date: data.date,
+    transactionType: data.transaction_type as 'IN' | 'OUT',
+    clientId: data.client_id,
+    clientName: data.client_name,
+    diameter: Number(data.diameter),
+    grooves: Number(data.grooves),
+    section: data.section,
+    type: data.type,
+    pulleyString: data.pulley_string,
+    quantity: Number(data.quantity),
+    rate: Number(data.rate),
+    costPerUnit: Number(data.cost_per_unit),
+    machineCost: Number(data.machine_cost),
+    boreUnits: Number(data.bore_units),
+    boreRate: Number(data.bore_rate),
+    boreCost: Number(data.bore_cost),
+    total: Number(data.total),
+    remarks: data.remarks || ''
+});
+
 export const api = {
   // --- AUTH ---
   login: async (email: string, password: string, companyName?: string, companyDetails?: any): Promise<{ user: User, settings: AppSettings }> => {
-    try {
-      let userCredential;
-      let settings: AppSettings;
-      
-      if (companyName) {
-        // REGISTER FLOW
-        userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        
-        // Save initial Settings to Firestore
-        settings = {
-          companyName: companyName,
-          companyAddress: companyDetails?.address || '',
-          gstNo: companyDetails?.gstNo || '',
-          defaultRate: 6,
-          boreRate: 50,
-          currency: ''
+    
+    if (companyName) {
+        // --- SIGN UP ---
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    company_name: companyName
+                }
+            }
+        });
+
+        if (authError) throw authError;
+        if (!authData.user) throw new Error("Registration failed");
+
+        // Create Settings Record
+        const newSettings = {
+            user_id: authData.user.id,
+            company_name: companyName,
+            company_address: companyDetails?.address || '',
+            gst_no: companyDetails?.gstNo || '',
+            default_rate: 6,
+            bore_rate: 50,
+            currency: ''
         };
-        
-        // Create user settings document
-        await setDoc(doc(db, "settings", user.uid), settings);
 
-      } else {
-        // LOGIN FLOW
-        userCredential = await signInWithEmailAndPassword(auth, email, password);
-        
+        const { error: settingsError } = await supabase
+            .from('settings')
+            .insert(newSettings);
+
+        if (settingsError) throw settingsError;
+
+        return {
+            user: { email: email, companyName },
+            settings: mapSettingsFromDB(newSettings)
+        };
+
+    } else {
+        // --- SIGN IN ---
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (authError) throw authError;
+        if (!authData.user) throw new Error("Login failed");
+
         // Fetch Settings
-        const settingsSnap = await getDocs(query(collection(db, "settings"), where("__name__", "==", userCredential.user.uid)));
-        if (!settingsSnap.empty) {
-            settings = settingsSnap.docs[0].data() as AppSettings;
-        } else {
-            // Fallback default settings if missing
-            settings = {
-                companyName: 'My Company',
-                companyAddress: '',
-                gstNo: '',
-                defaultRate: 6,
-                boreRate: 50,
-                currency: ''
-            };
-        }
-      }
+        const { data: settingsData, error: settingsError } = await supabase
+            .from('settings')
+            .select('*')
+            .eq('user_id', authData.user.id)
+            .single();
 
-      return { 
-        user: { email: userCredential.user.email || '', companyName: settings.companyName }, 
-        settings 
-      };
-    } catch (error: any) {
-      console.error("Firebase Auth Error:", error);
-      throw new Error(error.message);
+        if (settingsError && settingsError.code !== 'PGRST116') throw settingsError;
+
+        const settings = settingsData ? mapSettingsFromDB(settingsData) : {
+            companyName: 'My Company',
+            companyAddress: '',
+            gstNo: '',
+            defaultRate: 6,
+            boreRate: 50,
+            currency: ''
+        };
+
+        return {
+            user: { email: email, companyName: settings.companyName },
+            settings
+        };
     }
+  },
+
+  logout: async () => {
+    await supabase.auth.signOut();
   },
 
   // --- ITEMS ---
   getItems: async (): Promise<PulleyItem[]> => {
-    try {
-      const q = query(collection(db, "items"), where("userId", "==", getUserId()));
-      const querySnapshot = await getDocs(q);
-      const items: PulleyItem[] = [];
-      querySnapshot.forEach((doc) => {
-        // Combine Firestore ID with data, but ensure 'id' field exists for app logic
-        items.push({ ...doc.data(), id: doc.id } as PulleyItem);
-      });
-      // Sort by date desc (client side sort for simplicity with indexes)
-      return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    } catch (e) {
-      console.error("Error getting items: ", e);
-      return [];
-    }
+    const { data, error } = await supabase
+        .from('items')
+        .select('*')
+        .order('date', { ascending: false });
+    
+    if (error) throw error;
+    return (data || []).map(mapItemFromDB);
   },
 
   saveItem: async (item: PulleyItem): Promise<PulleyItem> => {
-    const uid = getUserId();
-    const itemData = { ...item, userId: uid };
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const dbItem = {
+        user_id: user.id,
+        date: item.date,
+        transaction_type: item.transactionType,
+        client_id: item.clientId,
+        client_name: item.clientName,
+        diameter: item.diameter,
+        grooves: item.grooves,
+        section: item.section,
+        type: item.type,
+        pulley_string: item.pulleyString,
+        quantity: item.quantity,
+        rate: item.rate,
+        cost_per_unit: item.costPerUnit,
+        machine_cost: item.machineCost,
+        bore_units: item.boreUnits,
+        bore_rate: item.boreRate,
+        bore_cost: item.boreCost,
+        total: item.total,
+        remarks: item.remarks
+    };
+
+    // If item.id matches a UUID format (Supabase), update. Else insert.
+    // However, for simplicity, if we pass an ID that exists, we update.
+    // Since local ID might be temp, we handle upsert carefully.
     
-    // If item has a Firestore ID (it was edited), update it
-    // Note: The app generates a random string ID for 'id'. 
-    // We should check if we are creating new or updating based on logic.
-    // However, Firestore creates its own IDs.
-    
-    // Strategy: We query to see if an item with this specific application 'id' exists
-    // If so update, else add.
-    
-    const q = query(collection(db, "items"), where("id", "==", item.id), where("userId", "==", uid));
-    const querySnapshot = await getDocs(q);
-    
-    if (!querySnapshot.empty) {
-        // Update existing
-        const docId = querySnapshot.docs[0].id;
-        await updateDoc(doc(db, "items", docId), itemData);
-        return { ...itemData, id: docId } as any; // Return logic id
+    let result;
+    // Check if ID is a valid UUID (Supabase ID)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.id);
+
+    if (isUUID) {
+         const { data, error } = await supabase
+            .from('items')
+            .update(dbItem)
+            .eq('id', item.id)
+            .select()
+            .single();
+         if (error) throw error;
+         result = data;
     } else {
-        // Create new
-        const docRef = await addDoc(collection(db, "items"), itemData);
-        // We keep the internal 'id' generated by the app for consistency
-        return item;
+         const { data, error } = await supabase
+            .from('items')
+            .insert(dbItem)
+            .select()
+            .single();
+         if (error) throw error;
+         result = data;
     }
+
+    return mapItemFromDB(result);
   },
 
   deleteItem: async (id: string): Promise<void> => {
-    const uid = getUserId();
-    const q = query(collection(db, "items"), where("id", "==", id), where("userId", "==", uid));
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach(async (d) => {
-        await deleteDoc(doc(db, "items", d.id));
-    });
+    const { error } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', id);
+    if (error) throw error;
   },
 
   // --- CLIENTS ---
   getClients: async (): Promise<Client[]> => {
-    try {
-      const q = query(collection(db, "clients"), where("userId", "==", getUserId()));
-      const querySnapshot = await getDocs(q);
-      const clients: Client[] = [];
-      querySnapshot.forEach((doc) => {
-        clients.push({ ...doc.data(), id: doc.data().id } as Client);
-      });
-      return clients;
-    } catch (e) {
-      return [];
-    }
+    const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .order('name');
+    
+    if (error) throw error;
+    return (data || []).map(mapClientFromDB);
   },
 
   saveClient: async (client: Client): Promise<Client> => {
-    const uid = getUserId();
-    await addDoc(collection(db, "clients"), { ...client, userId: uid });
-    return client;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const dbClient = {
+        user_id: user.id,
+        name: client.name,
+        contact: client.contact || null,
+        default_rate: client.defaultRate || null
+    };
+
+    const { data, error } = await supabase
+        .from('clients')
+        .insert(dbClient)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return mapClientFromDB(data);
   },
 
   updateClient: async (client: Client): Promise<Client> => {
-    const uid = getUserId();
-    const q = query(collection(db, "clients"), where("id", "==", client.id), where("userId", "==", uid));
-    const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) {
-        await updateDoc(doc(db, "clients", querySnapshot.docs[0].id), { ...client, userId: uid });
-    }
-    return client;
+    const dbClient = {
+        name: client.name,
+        contact: client.contact || null,
+        default_rate: client.defaultRate || null
+    };
+
+    const { data, error } = await supabase
+        .from('clients')
+        .update(dbClient)
+        .eq('id', client.id)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return mapClientFromDB(data);
   },
 
   deleteClient: async (id: string): Promise<void> => {
-    const uid = getUserId();
-    const q = query(collection(db, "clients"), where("id", "==", id), where("userId", "==", uid));
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach(async (d) => {
-        await deleteDoc(doc(db, "clients", d.id));
-    });
+    const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', id);
+    if (error) throw error;
   },
 
   // --- SETTINGS ---
   saveSettings: async (settings: AppSettings): Promise<AppSettings> => {
-    const uid = getUserId();
-    await setDoc(doc(db, "settings", uid), settings);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const dbSettings = {
+        company_name: settings.companyName,
+        company_address: settings.companyAddress,
+        gst_no: settings.gstNo,
+        default_rate: settings.defaultRate,
+        bore_rate: settings.boreRate,
+        currency: settings.currency
+    };
+
+    const { error } = await supabase
+        .from('settings')
+        .update(dbSettings)
+        .eq('user_id', user.id);
+
+    if (error) throw error;
     return settings;
   }
 };

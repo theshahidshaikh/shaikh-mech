@@ -11,7 +11,7 @@
     <title>ShaikhMech</title>
     <link rel="manifest" href="/manifest.json" />
     
-    <!-- Tailwind CSS CDN - Ensures styles load immediately -->
+    <!-- Tailwind CSS CDN for guaranteed styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -39,30 +39,31 @@
         }
       }
     </script>
-
+    
     <!-- html2pdf library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Import map kept for environment compatibility -->
     <script type="importmap">
-    {
-      "imports": {
-        "react/": "https://aistudiocdn.com/react@^19.2.0/",
-        "react": "https://aistudiocdn.com/react@^19.2.0",
-        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-        "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
-        "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
-        "mongoose": "https://aistudiocdn.com/mongoose@^9.0.0",
-        "vite": "https://aistudiocdn.com/vite@^7.2.4",
-        "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-        "express": "https://aistudiocdn.com/express@^5.1.0",
-        "path": "https://aistudiocdn.com/path@^0.12.7",
-        "cors": "https://aistudiocdn.com/cors@^2.8.5",
-        "url": "https://aistudiocdn.com/url@^0.11.4",
-        "body-parser": "https://aistudiocdn.com/body-parser@^2.2.1",
-        "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/"
-      }
-    }
-    </script>
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+    "mongoose": "https://aistudiocdn.com/mongoose@^9.0.0",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "express": "https://aistudiocdn.com/express@^5.1.0",
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "cors": "https://aistudiocdn.com/cors@^2.8.5",
+    "url": "https://aistudiocdn.com/url@^0.11.4",
+    "body-parser": "https://aistudiocdn.com/body-parser@^2.2.1",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.86.0"
+  }
+}
+</script>
   </head>
   <body class="bg-gray-50 text-gray-900 font-sans antialiased pb-safe-bottom">
     <div id="root"></div>

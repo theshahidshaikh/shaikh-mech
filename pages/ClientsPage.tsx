@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Client, PulleyItem, AppSettings } from '../types';
 import { Button } from '../components/ui/Button';
@@ -19,33 +18,41 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({ clients, items, settin
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Client Form State
   const [newClientName, setNewClientName] = useState('');
   const [newClientContact, setNewClientContact] = useState('');
   const [newClientRate, setNewClientRate] = useState('');
 
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientName.trim()) return;
 
-    if (editingClient) {
-        onUpdateClient({
-            ...editingClient,
-            name: newClientName,
-            contact: newClientContact,
-            defaultRate: newClientRate ? parseFloat(newClientRate) : undefined
-        });
-    } else {
-        onAddClient({
-            id: Math.random().toString(36).substr(2, 9),
-            name: newClientName,
-            contact: newClientContact,
-            defaultRate: newClientRate ? parseFloat(newClientRate) : undefined
-        });
+    setIsSaving(true);
+    try {
+        if (editingClient) {
+            await onUpdateClient({
+                ...editingClient,
+                name: newClientName,
+                contact: newClientContact || undefined,
+                defaultRate: newClientRate ? parseFloat(newClientRate) : undefined
+            });
+        } else {
+            // ID will be assigned by backend/database
+            await onAddClient({
+                id: '', // Placeholder, will be replaced by DB
+                name: newClientName,
+                contact: newClientContact || undefined,
+                defaultRate: newClientRate ? parseFloat(newClientRate) : undefined
+            });
+        }
+        resetForm();
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsSaving(false);
     }
-    
-    resetForm();
   };
 
   const resetForm = () => {
@@ -113,8 +120,8 @@ export const ClientsPage: React.FC<ClientsPageProps> = ({ clients, items, settin
                 />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="secondary" onClick={resetForm}>Cancel</Button>
-                <Button type="submit">{editingClient ? 'Update Client' : 'Save Client'}</Button>
+                <Button type="button" variant="secondary" onClick={resetForm} disabled={isSaving}>Cancel</Button>
+                <Button type="submit" disabled={isSaving}>{isSaving ? 'Saving...' : (editingClient ? 'Update Client' : 'Save Client')}</Button>
             </div>
           </form>
         </div>
