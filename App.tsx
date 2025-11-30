@@ -38,7 +38,7 @@ function App() {
         } else {
              setIsAuthenticated(false);
         }
-    });
+    }).catch(err => console.error("Session check failed", err));
 
     // Listen for changes
     const {
@@ -65,15 +65,9 @@ function App() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-        // We need to re-fetch settings on load to ensure we have the company name
-        // (Login returns it, but page refresh needs fetch)
-        const [fetchedItems, fetchedClients] = await Promise.all([
-            api.getItems(),
-            api.getClients()
-        ]);
-        
-        // Fetch settings manually since auth state change doesn't return them
         const { data: { user } } = await supabase.auth.getUser();
+        
+        // 1. Fetch Settings
         if (user) {
             const { data: settingsData } = await supabase
                 .from('settings')
@@ -90,8 +84,18 @@ function App() {
                     boreRate: settingsData.bore_rate || 50,
                     currency: settingsData.currency || ''
                 });
+            } else {
+                // If user exists but settings don't (e.g. just confirmed email), create them now
+                const newSettings = await api.ensureSettingsCreated();
+                setSettings(newSettings);
             }
         }
+
+        // 2. Fetch Data
+        const [fetchedItems, fetchedClients] = await Promise.all([
+            api.getItems(),
+            api.getClients()
+        ]);
 
         setItems(fetchedItems);
         setClients(fetchedClients);

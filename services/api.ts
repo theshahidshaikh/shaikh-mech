@@ -56,14 +56,23 @@ export const api = {
             options: {
                 data: {
                     company_name: companyName
-                }
+                },
+                emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined
             }
         });
 
         if (authError) throw authError;
+        
+        // CRITICAL: If session is null, email confirmation is required.
+        // We stop here and let the UI show the "Check Email" screen.
+        if (authData.user && !authData.session) {
+             throw new Error("REGISTRATION_SUCCESS_CONFIRM_EMAIL");
+        }
+
         if (!authData.user) throw new Error("Registration failed");
 
-        // Create Settings Record
+        // If we are here, it means email confirmation is OFF in Supabase, 
+        // so we create settings immediately.
         const newSettings = {
             user_id: authData.user.id,
             company_name: companyName,
@@ -124,6 +133,36 @@ export const api = {
     await supabase.auth.signOut();
   },
 
+  // Used when user clicks Email Confirmation link and is auto-logged in by Supabase
+  // but doesn't have settings yet.
+  ensureSettingsCreated: async (): Promise<AppSettings> => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
+      // Check if exists
+      const { data: existing } = await supabase.from('settings').select('*').eq('user_id', user.id).single();
+      if (existing) return mapSettingsFromDB(existing);
+
+      // Create Default
+      // Try to get company name from metadata if stored during signup
+      const companyName = user.user_metadata?.company_name || 'My Company';
+      
+      const newSettings = {
+          user_id: user.id,
+          company_name: companyName,
+          company_address: '',
+          gst_no: '',
+          default_rate: 6,
+          bore_rate: 50,
+          currency: ''
+      };
+
+      const { error } = await supabase.from('settings').insert(newSettings);
+      if (error) throw error;
+      
+      return mapSettingsFromDB(newSettings);
+  },
+
   // --- ITEMS ---
   getItems: async (): Promise<PulleyItem[]> => {
     const { data, error } = await supabase
@@ -161,12 +200,7 @@ export const api = {
         remarks: item.remarks
     };
 
-    // If item.id matches a UUID format (Supabase), update. Else insert.
-    // However, for simplicity, if we pass an ID that exists, we update.
-    // Since local ID might be temp, we handle upsert carefully.
-    
     let result;
-    // Check if ID is a valid UUID (Supabase ID)
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.id);
 
     if (isUUID) {
@@ -214,6 +248,7 @@ export const api = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
 
+    // Sanitize undefined values
     const dbClient = {
         user_id: user.id,
         name: client.name,

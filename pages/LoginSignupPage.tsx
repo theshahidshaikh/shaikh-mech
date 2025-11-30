@@ -3,6 +3,8 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { api } from '../services/api';
 import { AppSettings, User } from '../types';
+import { Mail, CheckCircle, ArrowRight, AlertTriangle } from 'lucide-react';
+import { isSupabaseConfigured } from '../services/supabase';
 
 interface LoginSignupPageProps {
   onLoginSuccess: (user: User, settings: AppSettings) => void;
@@ -11,6 +13,8 @@ interface LoginSignupPageProps {
 export const LoginSignupPage: React.FC<LoginSignupPageProps> = ({ onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [showVerification, setShowVerification] = useState(false);
+  const [isEmailConfirmed, setIsEmailConfirmed] = useState(false);
   
   // Form State
   const [email, setEmail] = useState('');
@@ -19,6 +23,14 @@ export const LoginSignupPage: React.FC<LoginSignupPageProps> = ({ onLoginSuccess
   const [companyAddress, setCompanyAddress] = useState('');
   const [gstNo, setGstNo] = useState('');
   const [error, setError] = useState('');
+
+  // Check URL for Email Confirmation token (from Supabase email link)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && (hash.includes('access_token') || hash.includes('type=signup') || hash.includes('type=recovery'))) {
+        setIsEmailConfirmed(true);
+    }
+  }, []);
 
   // Clear timeout on unmount
   useEffect(() => {
@@ -53,16 +65,92 @@ export const LoginSignupPage: React.FC<LoginSignupPageProps> = ({ onLoginSuccess
     } catch (err: any) {
         console.error(err);
         
-        let msg = err.message || 'An error occurred';
-        if (msg.includes('Invalid login credentials')) {
-            msg = 'Invalid email or password.';
+        const msg = err.message || 'An error occurred';
+        if (msg === "REGISTRATION_SUCCESS_CONFIRM_EMAIL") {
+            setShowVerification(true);
+        } else if (msg.includes('Invalid login credentials')) {
+            setError('Invalid email or password.');
+        } else {
+            setError(msg);
         }
-        setError(msg);
     } finally {
         setIsLoading(false);
     }
   };
 
+  // --- VIEW: EMAIL CONFIRMED SUCCESS ---
+  if (isEmailConfirmed) {
+      return (
+        <div className="min-h-screen bg-green-50 flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center space-y-6">
+                <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                    <CheckCircle className="w-10 h-10 text-green-600" />
+                </div>
+                <h1 className="text-2xl font-bold text-gray-900">Email Verified!</h1>
+                <p className="text-gray-600">
+                    Your email has been successfully verified. You can now log in to your account.
+                </p>
+                <div className="pt-4">
+                    <Button 
+                        onClick={() => {
+                            setIsEmailConfirmed(false);
+                            setIsLogin(true);
+                            // Clear hash
+                            window.location.hash = '';
+                        }} 
+                        className="w-full bg-green-600 hover:bg-green-700" 
+                        size="lg"
+                    >
+                        Continue to Login <ArrowRight className="ml-2 w-4 h-4" />
+                    </Button>
+                </div>
+            </div>
+        </div>
+      );
+  }
+
+  // --- VIEW: CHECK INBOX INSTRUCTION ---
+  if (showVerification) {
+      return (
+        <div className="min-h-screen bg-brand-50 flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center space-y-6">
+                <div className="mx-auto w-20 h-20 bg-brand-100 rounded-full flex items-center justify-center mb-4">
+                    <Mail className="w-10 h-10 text-brand-600" />
+                </div>
+                <h1 className="text-2xl font-bold text-gray-900">Verify your Email</h1>
+                <p className="text-gray-600">
+                    We've sent a confirmation link to <span className="font-bold text-gray-800">{email}</span>.
+                </p>
+                <p className="text-sm text-gray-500">
+                    Please check your inbox (and spam folder) and click the link to activate your account.
+                </p>
+                
+                <div className="pt-6 space-y-3">
+                    <Button 
+                        onClick={() => window.location.href = "mailto:"}
+                        className="w-full" 
+                        size="lg"
+                    >
+                        Open Email App
+                    </Button>
+                    <Button 
+                        variant="secondary"
+                        onClick={() => {
+                            setShowVerification(false);
+                            setIsLogin(true);
+                        }} 
+                        className="w-full" 
+                        size="lg"
+                    >
+                        Return to Login
+                    </Button>
+                </div>
+            </div>
+        </div>
+      );
+  }
+
+  // --- VIEW: LOGIN / SIGNUP FORM ---
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 space-y-6">
@@ -72,6 +160,21 @@ export const LoginSignupPage: React.FC<LoginSignupPageProps> = ({ onLoginSuccess
             {isLogin ? 'Login to your ERP' : 'Register New Company'}
           </p>
         </div>
+
+        {!isSupabaseConfigured && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                <div className="flex">
+                    <div className="flex-shrink-0">
+                        <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                    </div>
+                    <div className="ml-3">
+                        <p className="text-sm text-yellow-700">
+                            Supabase keys missing. Please configure VITE_SUPABASE_URL in your environment variables.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           

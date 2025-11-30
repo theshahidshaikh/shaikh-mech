@@ -9,6 +9,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase Environment Variables are missing! Please check your .env file or Vercel Project Settings.');
 }
 
+export const isSupabaseConfigured = !!supabaseUrl && !!supabaseAnonKey;
+
 // Initialize Supabase with fallback values to prevent app crash on startup
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
