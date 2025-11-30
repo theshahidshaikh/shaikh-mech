@@ -22,8 +22,10 @@ function App() {
     const path = window.location.pathname;
     const hash = window.location.hash;
     
-    // Check specific path OR hash method
-    if (path === '/email-confirmed') return true;
+    // Check specific path (allowing for trailing slash)
+    if (path === '/email-confirmed' || path === '/email-confirmed/') return true;
+    
+    // Check hash method (Legacy fallback)
     if (hash && hash.includes('access_token') && (hash.includes('type=signup') || hash.includes('type=recovery') || hash.includes('type=magiclink'))) return true;
     
     return false;
