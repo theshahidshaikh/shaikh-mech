@@ -16,7 +16,18 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [view, setView] = useState<ViewState>('dashboard');
   const [isLoading, setIsLoading] = useState(false);
-  const [showEmailConfirm, setShowEmailConfirm] = useState(false);
+  
+  // Initialize by checking for the specific email confirmation route or hash
+  const [showEmailConfirm, setShowEmailConfirm] = useState(() => {
+    const path = window.location.pathname;
+    const hash = window.location.hash;
+    
+    // Check specific path OR hash method
+    if (path === '/email-confirmed') return true;
+    if (hash && hash.includes('access_token') && (hash.includes('type=signup') || hash.includes('type=recovery') || hash.includes('type=magiclink'))) return true;
+    
+    return false;
+  });
   
   // App State
   const [settings, setSettings] = useState<AppSettings>({
@@ -30,15 +41,6 @@ function App() {
 
   const [clients, setClients] = useState<Client[]>([]);
   const [items, setItems] = useState<PulleyItem[]>([]);
-
-  // Check for Email Confirmation Link on Startup
-  useEffect(() => {
-    const hash = window.location.hash;
-    // Supabase sends #access_token=...&type=signup or recovery
-    if (hash && hash.includes('access_token') && (hash.includes('type=signup') || hash.includes('type=recovery') || hash.includes('type=magiclink'))) {
-        setShowEmailConfirm(true);
-    }
-  }, []);
 
   // Auth Listener
   useEffect(() => {
@@ -200,6 +202,8 @@ function App() {
       return <EmailConfirmationPage onContinue={() => {
           setShowEmailConfirm(false);
           // Force reload of data now that we are confirmed
+          // Clear path
+          window.history.replaceState(null, '', '/');
           loadData();
       }} />;
   }
