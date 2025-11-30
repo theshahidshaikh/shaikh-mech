@@ -3,7 +3,7 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { api } from '../services/api';
 import { AppSettings, User } from '../types';
-import { Mail, AlertTriangle } from 'lucide-react';
+import { Mail, CheckCircle, ArrowRight, AlertTriangle } from 'lucide-react';
 import { isSupabaseConfigured } from '../services/supabase';
 
 interface LoginSignupPageProps {
@@ -14,6 +14,7 @@ export const LoginSignupPage: React.FC<LoginSignupPageProps> = ({ onLoginSuccess
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
+  const [isEmailConfirmed, setIsEmailConfirmed] = useState(false);
   
   // Form State
   const [email, setEmail] = useState('');
@@ -22,6 +23,14 @@ export const LoginSignupPage: React.FC<LoginSignupPageProps> = ({ onLoginSuccess
   const [companyAddress, setCompanyAddress] = useState('');
   const [gstNo, setGstNo] = useState('');
   const [error, setError] = useState('');
+
+  // Check URL for Email Confirmation token (from Supabase email link)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && (hash.includes('access_token') || hash.includes('type=signup') || hash.includes('type=recovery'))) {
+        setIsEmailConfirmed(true);
+    }
+  }, []);
 
   // Clear timeout on unmount
   useEffect(() => {
@@ -68,6 +77,37 @@ export const LoginSignupPage: React.FC<LoginSignupPageProps> = ({ onLoginSuccess
         setIsLoading(false);
     }
   };
+
+  // --- VIEW: EMAIL CONFIRMED SUCCESS ---
+  if (isEmailConfirmed) {
+      return (
+        <div className="min-h-screen bg-green-50 flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center space-y-6">
+                <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                    <CheckCircle className="w-10 h-10 text-green-600" />
+                </div>
+                <h1 className="text-2xl font-bold text-gray-900">Email Verified!</h1>
+                <p className="text-gray-600">
+                    Your email has been successfully verified. You can now log in to your account.
+                </p>
+                <div className="pt-4">
+                    <Button 
+                        onClick={() => {
+                            setIsEmailConfirmed(false);
+                            setIsLogin(true);
+                            // Clear hash
+                            window.location.hash = '';
+                        }} 
+                        className="w-full bg-green-600 hover:bg-green-700" 
+                        size="lg"
+                    >
+                        Continue to Login <ArrowRight className="ml-2 w-4 h-4" />
+                    </Button>
+                </div>
+            </div>
+        </div>
+      );
+  }
 
   // --- VIEW: CHECK INBOX INSTRUCTION ---
   if (showVerification) {

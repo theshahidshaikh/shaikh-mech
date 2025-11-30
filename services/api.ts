@@ -57,8 +57,7 @@ export const api = {
                 data: {
                     company_name: companyName
                 },
-                // Redirect to specific confirmation page
-                emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/email-confirmed` : undefined
+                emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined
             }
         });
 
