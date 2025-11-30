@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { PulleyItem, AppSettings, Client } from '../types';
 import { Button } from '../components/ui/Button';
-import { Printer, Users, FileSpreadsheet, Download } from 'lucide-react';
+import { Printer, Users, FileSpreadsheet, Download, FileText } from 'lucide-react';
 
 interface BillingPageProps {
   items: PulleyItem[];
@@ -57,11 +57,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({ items, clients, settin
   };
 
   const handlePrint = () => {
-    // Change title for PDF filename
     const originalTitle = document.title;
     document.title = invoiceNumber;
     window.print();
-    // Restore title
     setTimeout(() => {
         document.title = originalTitle;
     }, 500);
@@ -69,16 +67,13 @@ export const BillingPage: React.FC<BillingPageProps> = ({ items, clients, settin
 
   const handleDownloadPDF = () => {
     const element = document.getElementById('invoice-content');
-    
-    // Temporarily remove overflow-x-auto to ensure the full table is captured in the PDF
-    // This fixes the issue where the table is cut off on mobile devices during PDF generation
     const tableContainer = element?.querySelector('.overflow-x-auto');
     if (tableContainer) {
         tableContainer.classList.remove('overflow-x-auto');
     }
 
     const opt = {
-      margin: 5,
+      margin: 0, // Zero margin for full page look
       filename: `${invoiceNumber}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
@@ -89,7 +84,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({ items, clients, settin
     if (window.html2pdf) {
         // @ts-ignore
         window.html2pdf().set(opt).from(element).save().then(() => {
-             // Restore scrollable table after generation
              if (tableContainer) {
                 tableContainer.classList.add('overflow-x-auto');
             }
@@ -106,173 +100,217 @@ export const BillingPage: React.FC<BillingPageProps> = ({ items, clients, settin
     <div className="space-y-6">
       {/* Control Panel (Hidden on Print) */}
       <div className="flex flex-col gap-4 no-print">
-        <h1 className="text-2xl font-bold text-gray-900">Monthly Bill Statement</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Billing & Invoice</h1>
         
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center bg-gray-100 p-4 rounded-lg">
-            <div className="w-full md:w-auto">
-                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Select Client</label>
-                <div className="flex items-center bg-white rounded-md border border-gray-300 px-2">
-                    <Users size={16} className="text-gray-400 mr-2" />
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row gap-4 items-end">
+            <div className="w-full md:w-auto flex-grow">
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Select Client</label>
+                <div className="relative">
+                    <Users size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <select
                         value={selectedClientId}
                         onChange={(e) => setSelectedClientId(e.target.value)}
-                        className="w-full md:w-48 border-none focus:ring-0 text-sm py-2"
+                        className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-sm"
                     >
-                        <option value="">-- All Clients --</option>
+                        <option value="">-- Select Client --</option>
                         {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </div>
             </div>
 
             <div className="w-full md:w-auto">
-                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Month</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Billing Month</label>
                 <input
                     type="month"
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-brand-500 focus:border-brand-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500"
                 />
             </div>
             
-            <div className="mt-auto md:ml-auto flex flex-wrap gap-2 w-full md:w-auto">
-                <Button variant="secondary" onClick={handleExportExcel} disabled={billingItems.length === 0} className="flex-1 md:flex-none">
-                    <FileSpreadsheet className="w-4 h-4 mr-2" /> Excel
+            <div className="flex gap-2 w-full md:w-auto">
+                <Button variant="secondary" onClick={handleExportExcel} disabled={billingItems.length === 0} title="Download CSV">
+                    <FileSpreadsheet className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">Excel</span>
                 </Button>
-                <Button type="button" variant="secondary" onClick={handleDownloadPDF} disabled={billingItems.length === 0} className="flex-1 md:flex-none">
-                    <Download className="w-4 h-4 mr-2" /> PDF
+                <Button variant="secondary" onClick={handleDownloadPDF} disabled={billingItems.length === 0} title="Download PDF">
+                    <Download className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">PDF</span>
                 </Button>
-                <Button type="button" variant="secondary" onClick={handlePrint} disabled={billingItems.length === 0} className="flex-1 md:flex-none">
-                    <Printer className="w-4 h-4 mr-2" /> Print
+                <Button onClick={handlePrint} disabled={billingItems.length === 0} title="Print Invoice">
+                    <Printer className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">Print</span>
                 </Button>
             </div>
         </div>
       </div>
 
-      {/* Invoice Layout (Optimized for Screen & Print) */}
-      <div id="invoice-content" className="bg-white p-4 sm:p-10 rounded-sm shadow-lg border border-gray-200 print:shadow-none print:border-none print:w-full print:p-0 print:m-0 invoice-container">
-        
-        {/* Formal Invoice Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start border-b-2 border-gray-800 pb-4 mb-6 gap-4">
-            <div className="flex gap-4">
-                <div className="h-14 w-14 sm:h-16 sm:w-16 bg-gray-900 text-white flex items-center justify-center font-bold text-2xl sm:text-3xl rounded print:bg-black print:text-white shrink-0">
-                    {settings.companyName.charAt(0)}
-                </div>
-                <div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 uppercase tracking-wide">{settings.companyName}</h2>
-                    {settings.companyAddress && (
-                        <p className="text-gray-600 text-xs sm:text-sm whitespace-pre-wrap max-w-xs">{settings.companyAddress}</p>
-                    )}
-                    {settings.gstNo && (
-                        <p className="text-gray-600 text-xs sm:text-sm mt-1 font-semibold">GST/TAX: {settings.gstNo}</p>
-                    )}
+      {/* INVOICE DESIGN CANVAS */}
+      <div className="flex justify-center">
+        <div id="invoice-content" className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-2xl print:shadow-none mx-auto relative text-gray-800 print:w-full print:max-w-none">
+            
+            {/* 1. Header with Brand Color */}
+            <div className="bg-brand-600 text-white p-8 print:bg-brand-600 print:text-white">
+                <div className="flex justify-between items-start">
+                    <div>
+                         <h1 className="text-4xl font-bold tracking-tight mb-2">{settings.companyName}</h1>
+                         <div className="text-brand-100 text-sm space-y-1">
+                             <p className="whitespace-pre-wrap max-w-sm">{settings.companyAddress}</p>
+                             {settings.gstNo && <p className="font-semibold mt-1">GSTIN: {settings.gstNo}</p>}
+                         </div>
+                    </div>
+                    <div className="text-right">
+                        <h2 className="text-5xl font-extrabold text-brand-500 opacity-30 absolute top-6 right-8 pointer-events-none">INVOICE</h2>
+                        <div className="relative z-10 mt-2">
+                             <p className="text-brand-200 text-xs uppercase font-bold tracking-wider">Invoice Number</p>
+                             <p className="text-xl font-bold">{invoiceNumber}</p>
+                             
+                             <p className="text-brand-200 text-xs uppercase font-bold tracking-wider mt-3">Date</p>
+                             <p className="text-lg font-medium">{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div className="text-left sm:text-right w-full sm:w-auto">
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-300 uppercase tracking-widest print:text-gray-400">Invoice</h1>
-                <div className="mt-2 sm:mt-4 text-sm">
-                    <p><span className="font-bold text-gray-700">Date:</span> {new Date().toLocaleDateString()}</p>
-                    <p><span className="font-bold text-gray-700">Month:</span> {selectedMonth}</p>
-                    <p><span className="font-bold text-gray-700">Invoice #:</span> {invoiceNumber}</p>
+
+            <div className="p-8">
+                {/* 2. Bill To Section */}
+                <div className="flex justify-between mb-8 border-b border-gray-100 pb-8">
+                    <div className="w-1/2">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Bill To</p>
+                        {selectedClient ? (
+                            <>
+                                <h3 className="text-xl font-bold text-gray-900">{selectedClient.name}</h3>
+                                {selectedClient.contact && (
+                                    <p className="text-gray-600 mt-1">Attn: {selectedClient.contact}</p>
+                                )}
+                            </>
+                        ) : (
+                             <div>
+                                 <h3 className="text-xl font-bold text-gray-400 italic">General / All Clients</h3>
+                                 <p className="text-gray-400 text-sm">Select a client to populate this section</p>
+                             </div>
+                        )}
+                    </div>
+                    <div className="w-1/3 text-right">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Billing Period</p>
+                        <p className="text-gray-900 font-medium">
+                            {new Date(selectedMonth).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                        </p>
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        {/* Bill To Section */}
-        <div className="mb-8 p-4 bg-gray-50 rounded print:bg-transparent print:border print:border-gray-300 print:p-2">
-            <p className="text-xs font-bold text-gray-500 uppercase mb-1">Bill To:</p>
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900">{selectedClient ? selectedClient.name : 'General Account / All Clients'}</h3>
-            {selectedClient?.contact && <p className="text-gray-700">Attn: {selectedClient.contact}</p>}
-        </div>
-
-        {/* Invoice Table Container - Allows scroll on mobile without breaking layout */}
-        <div className="overflow-x-auto border border-gray-300 print:border-0 print:overflow-visible">
-            <table className="min-w-full divide-y divide-gray-300 text-left">
-                <thead className="bg-gray-100 print:bg-gray-200">
-                    <tr>
-                        <th className="px-3 py-3 text-xs font-bold text-gray-700 uppercase border-r border-gray-300 whitespace-nowrap">Date</th>
-                        <th className="px-3 py-3 text-xs font-bold text-gray-700 uppercase border-r border-gray-300 w-1/2 min-w-[200px]">Description</th>
-                        <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase border-r border-gray-300">Qty</th>
-                        <th className="px-3 py-3 text-right text-xs font-bold text-gray-700 uppercase border-r border-gray-300 whitespace-nowrap">Rate</th>
-                        <th className="px-3 py-3 text-right text-xs font-bold text-gray-700 uppercase whitespace-nowrap">Amount</th>
-                    </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                    {billingItems.length === 0 ? (
-                        <tr><td colSpan={5} className="p-8 text-center text-gray-500">No billable items found.</td></tr>
-                    ) : (
-                        billingItems.map((item, idx) => (
-                            <tr key={item.id} className="print:border-b print:border-gray-300">
-                                <td className="px-3 py-2 text-sm text-gray-800 whitespace-nowrap border-r border-gray-300">{item.date.slice(5)}</td>
-                                <td className="px-3 py-2 text-sm text-gray-800 border-r border-gray-300">
-                                    <div className="font-semibold">{item.pulleyString} <span className="text-gray-500 text-xs">({item.type})</span></div>
-                                    {!selectedClientId && <div className="text-xs text-gray-500 italic">{item.clientName}</div>}
-                                </td>
-                                <td className="px-3 py-2 text-sm text-gray-800 text-center border-r border-gray-300">{item.quantity}</td>
-                                <td className="px-3 py-2 text-sm text-gray-800 text-right border-r border-gray-300">{item.costPerUnit.toFixed(2)}</td>
-                                <td className="px-3 py-2 text-sm text-gray-800 text-right font-medium">{item.total.toFixed(2)}</td>
+                {/* 3. Items Table */}
+                <div className="mb-8 overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b-2 border-brand-600">
+                                <th className="py-3 text-xs font-bold text-brand-600 uppercase tracking-wider w-12 text-center">Sr.</th>
+                                <th className="py-3 text-xs font-bold text-brand-600 uppercase tracking-wider text-left">Date</th>
+                                <th className="py-3 text-xs font-bold text-brand-600 uppercase tracking-wider text-left w-1/3">Description</th>
+                                <th className="py-3 text-xs font-bold text-brand-600 uppercase tracking-wider text-right">Qty</th>
+                                <th className="py-3 text-xs font-bold text-brand-600 uppercase tracking-wider text-right">Rate</th>
+                                <th className="py-3 text-xs font-bold text-brand-600 uppercase tracking-wider text-right">Amount</th>
                             </tr>
-                        ))
-                    )}
-                </tbody>
-                <tfoot className="bg-gray-50 print:bg-gray-100 border-t-2 border-gray-800">
-                    <tr>
-                        <td colSpan={2} className="px-3 py-3 text-right font-bold text-gray-900 border-r border-gray-300">Totals:</td>
-                        <td className="px-3 py-3 text-center font-bold text-gray-900 border-r border-gray-300">{billingItems.reduce((a,c) => a+c.quantity, 0)}</td>
-                        <td className="border-r border-gray-300"></td>
-                        <td className="px-3 py-3 text-right font-bold text-gray-900 text-lg whitespace-nowrap">{settings.currency}{totalAmount.toFixed(2)}</td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
+                        </thead>
+                        <tbody className="text-sm">
+                            {billingItems.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="py-12 text-center text-gray-400 italic">
+                                        No transactions found for this period.
+                                    </td>
+                                </tr>
+                            ) : (
+                                billingItems.map((item, idx) => (
+                                    <tr key={item.id} className="border-b border-gray-100 print:break-inside-avoid">
+                                        <td className="py-3 text-center text-gray-400">{idx + 1}</td>
+                                        <td className="py-3 text-gray-600">{item.date.slice(8)}-{item.date.slice(5,7)}</td>
+                                        <td className="py-3 font-medium text-gray-900">
+                                            {item.pulleyString}
+                                            <span className="block text-xs text-gray-400 font-normal">{item.type}</span>
+                                        </td>
+                                        <td className="py-3 text-right font-medium">{item.quantity}</td>
+                                        <td className="py-3 text-right text-gray-600">{item.costPerUnit.toFixed(2)}</td>
+                                        <td className="py-3 text-right font-bold text-gray-900">{item.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
 
-        {/* Footer & Signature */}
-        <div className="mt-12 flex flex-col sm:flex-row justify-between items-end gap-10 break-inside-avoid">
-            <div className="text-sm text-gray-500 max-w-md w-full sm:w-auto">
-                <p className="font-bold text-gray-700 uppercase text-xs mb-1">Terms & Conditions:</p>
-                <ul className="list-disc pl-4 space-y-1 text-xs">
-                    <li>Payment is due within 30 days.</li>
-                    <li>Please quote invoice number in all correspondence.</li>
-                    <li>Make checks payable to <span className="font-semibold">{settings.companyName}</span>.</li>
-                </ul>
+                {/* 4. Totals & Info */}
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-12">
+                    <div className="w-full sm:w-1/2 space-y-6">
+                        {/* Bank Details Placeholder */}
+                        <div className="bg-gray-50 p-4 rounded border border-gray-100 print:border-gray-200">
+                            <p className="text-xs font-bold text-gray-500 uppercase mb-2">Bank Details</p>
+                            <p className="text-sm text-gray-700"><span className="font-semibold">Bank:</span> HDFC Bank</p>
+                            <p className="text-sm text-gray-700"><span className="font-semibold">Account:</span> XXXXXXXXXX</p>
+                            <p className="text-sm text-gray-700"><span className="font-semibold">IFSC:</span> HDFC000XXXX</p>
+                        </div>
+                        
+                        <div>
+                             <p className="text-xs font-bold text-gray-500 uppercase mb-1">Total in words</p>
+                             <p className="text-sm text-gray-900 italic capitalize">
+                                 {/* Simple placeholder for words conversion - usually handled by library */}
+                                 Only {settings.currency || '₹'} {totalAmount.toLocaleString('en-IN')}
+                             </p>
+                        </div>
+                    </div>
+
+                    <div className="w-full sm:w-1/3">
+                         <div className="space-y-3">
+                             <div className="flex justify-between text-sm">
+                                 <span className="text-gray-600">Subtotal</span>
+                                 <span className="font-medium">{settings.currency || '₹'}{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                             </div>
+                             {settings.gstNo && (
+                                 <div className="flex justify-between text-sm">
+                                     <span className="text-gray-600">Tax (0%)</span>
+                                     <span className="font-medium">-</span>
+                                 </div>
+                             )}
+                             <div className="border-t-2 border-gray-900 pt-3 mt-3 flex justify-between items-baseline">
+                                 <span className="text-base font-bold uppercase">Total</span>
+                                 <span className="text-2xl font-bold text-brand-700">{settings.currency || '₹'}{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+
+                {/* 5. Footer */}
+                <div className="mt-16 pt-8 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-end gap-8 print:mt-auto">
+                    <div className="text-xs text-gray-400 max-w-sm">
+                        <p className="font-bold mb-1">Terms & Conditions:</p>
+                        <p>1. Goods once sold will not be taken back.</p>
+                        <p>2. Interest @ 18% p.a. will be charged if payment is not made within due date.</p>
+                        <p>3. Subject to jurisdiction.</p>
+                    </div>
+                    <div className="text-center">
+                        <div className="h-16 w-40 border-b border-gray-400 mb-2"></div>
+                        <p className="text-xs font-bold text-gray-900 uppercase">Authorized Signatory</p>
+                        <p className="text-[10px] text-gray-500">For {settings.companyName}</p>
+                    </div>
+                </div>
             </div>
             
-            <div className="text-center w-48 mx-auto sm:mx-0">
-                <div className="h-16 border-b border-gray-400 mb-2"></div>
-                <p className="text-xs font-bold text-gray-600 uppercase">Authorized Signatory</p>
-                <p className="text-xs text-gray-400">For {settings.companyName}</p>
-            </div>
-        </div>
-        
-        <div className="mt-8 pt-4 border-t border-gray-100 text-center text-xs text-gray-400 print:hidden">
-            <p>Generated by PulleyMaster System</p>
+            {/* Branding Footer Line */}
+            <div className="h-2 bg-brand-600 w-full absolute bottom-0 print:hidden"></div>
         </div>
       </div>
       
+      {/* Print CSS */}
       <style>{`
         @media print {
-            @page { margin: 10mm; size: A4; }
-            html, body, #root {
-                height: auto !important;
-                overflow: visible !important;
-                min-height: 100% !important;
-            }
+            @page { margin: 0; size: A4; }
+            body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .no-print { display: none !important; }
-            body { 
-                background: white !important; 
-                -webkit-print-color-adjust: exact !important; 
-                print-color-adjust: exact !important;
+            #invoice-content { 
+                box-shadow: none; 
+                margin: 0; 
+                width: 100%;
+                min-height: 100vh;
             }
-            .invoice-container {
-                box-shadow: none !important;
-                border: none !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                width: 100% !important;
-                max-width: none !important;
-            }
-            /* Force borders to be visible */
-            table, th, td { border-color: #d1d5db !important; }
-            thead { background-color: #f3f4f6 !important; }
+            /* Ensure background colors print */
+            .bg-brand-600 { background-color: #2563eb !important; color: white !important; }
+            .bg-gray-50 { background-color: #f9fafb !important; }
         }
       `}</style>
     </div>
