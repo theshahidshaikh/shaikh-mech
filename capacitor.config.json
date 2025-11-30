@@ -1,0 +1,6 @@
+{
+  "appId": "com.shaikhmech.app",
+  "appName": "ShaikhMech",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
