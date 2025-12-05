@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { PulleyItem, AppSettings, Client } from '../types';
 import { Button } from '../components/ui/Button';
-import { Printer, Users, FileSpreadsheet, Download, FileText } from 'lucide-react';
+import { Printer, Users, FileSpreadsheet, Download } from 'lucide-react';
 
 interface BillingPageProps {
   items: PulleyItem[];
@@ -243,12 +243,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({ items, clients, settin
                                  <span className="text-gray-600">Subtotal</span>
                                  <span className="font-medium">{settings.currency || '₹'}{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                              </div>
-                             {settings.gstNo && (
-                                 <div className="flex justify-between text-sm">
-                                     <span className="text-gray-600">Tax (0%)</span>
-                                     <span className="font-medium">-</span>
-                                 </div>
-                             )}
+                             
                              <div className="border-t-2 border-gray-900 pt-3 mt-3 flex justify-between items-baseline">
                                  <span className="text-base font-bold uppercase">Total</span>
                                  <span className="text-2xl font-bold text-brand-700">{settings.currency || '₹'}{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>

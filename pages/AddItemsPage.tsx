@@ -123,8 +123,8 @@ export const AddItemsPage: React.FC<AddItemsPageProps> = ({
     }, 0);
 
     // 2. Apply Current Form Input to get "Closing Stock"
-    // If IN: Base + Input
-    // If OUT: Base - Input
+    // If IN: Base + Input (e.g., 0 + 10 = 10)
+    // If OUT: Base - Input (e.g., 10 - 2 = 8)
     if (formData.transactionType === 'IN') {
         return baseStock + q;
     } else {
@@ -619,7 +619,7 @@ export const AddItemsPage: React.FC<AddItemsPageProps> = ({
                         {currentStock !== null && (
                             <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center ${currentStock >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                 <Box size={10} className="mr-1"/> 
-                                {currentStock >= 0 ? `${currentStock} Rem.` : `Deficit: ${currentStock}`}
+                                {currentStock >= 0 ? `Closing: ${currentStock}` : `Deficit: ${currentStock}`}
                             </div>
                         )}
                     </div>
